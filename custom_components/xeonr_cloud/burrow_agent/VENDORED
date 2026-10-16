@@ -1,4 +1,4 @@
 source: git@git.prod.wtf:xeonr/burrow-agent-py.git
-ref: main
-commit: 4aa743d252ea62ea1babcd83cce15f6df5765ac5
-synced: 2026-10-16T14:20:45Z
+ref: v0.1.0
+commit: d9b89b5e9af3788d0930fc3012d0e7bd562cbf6e
+synced: 2026-10-16T14:33:38Z
