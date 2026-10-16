@@ -102,8 +102,9 @@ mirror-github:
     - install -d -m 700 ~/.ssh
     # github.com's ED25519 host key, as published at api.github.com/meta.
     - echo "github.com ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIOMqqnkVzrm0SdG6UOoqKLsabgH5C9okWi0dh2l9GKJl" > ~/.ssh/known_hosts
-    - export GIT_SSH_COMMAND="ssh -i $GITHUB_MIRROR_SSH_KEY -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes"
-    - chmod 600 "$GITHUB_MIRROR_SSH_KEY"
+    # OpenSSH needs the key's trailing newline, which the variable may lack.
+    - (umask 077; printf '%s\n' "$(cat "$GITHUB_MIRROR_SSH_KEY")" > ~/.ssh/id_mirror)
+    - export GIT_SSH_COMMAND="ssh -i ~/.ssh/id_mirror -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes"
     - git remote add github git@github.com:xeonr/hacloud-integration.git
     - |
       if [ -n "$CI_COMMIT_TAG" ]; then
