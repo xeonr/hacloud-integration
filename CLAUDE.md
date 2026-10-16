@@ -25,6 +25,14 @@ project **HAC** (https://trellis.prod.wtf/p/hac), not TODO comments.
 - `tunnel.py` is the only importer of the vendored `burrow_agent`; refresh it
   with `scripts/sync_burrow_agent.sh`, never by hand edits.
 
+## Releases and the GitHub mirror
+
+GitLab is the source of truth. A `vX.Y.Z` tag (matching `manifest.json`)
+makes GitLab CI publish the GitLab release, then push `main` and the tag to
+`github.com/xeonr/hacloud-integration` (the `mirror-github` job, using a
+protected deploy-key variable). There `.github/workflows/release.yml` makes
+the GitHub release that HACS installs. Never push to GitHub directly.
+
 ## Checks
 
 `pytest`, `ruff check .`, `ruff format --check .`, `python3 scripts/check_hacs.py`,

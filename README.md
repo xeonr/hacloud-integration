@@ -10,60 +10,60 @@ Assistant cloud. It gives you:
 - **Off-site backups.** A backup location for Home Assistant's own backups,
   stored in your team's storage. Only encrypted backups are accepted.
 
-> **Status:** pre-release (0.x). Not in HACS yet: HACS only installs from
-> GitHub, and the GitHub mirror is still to come (HAC-21). Until then,
-> install from the release zip below.
+> **Status:** pre-release (0.x).
 
 ## Requirements
 
 - Home Assistant **2026.10 or newer**, on any install type (OS, Container,
   Core, Supervised).
+- [HACS](https://hacs.xyz) for the recommended install. Without it, see the
+  manual install below.
 - A Xeonr account in a team that has Home Assistant Cloud enabled.
 - The Home Assistant Cloud **editor** or **admin** role in that team. Set it
   in the Xeonr console under your team's **Members & roles**. Being the
   team's owner isn't enough on its own.
 
-## Install
+## Install with HACS (recommended)
 
-Releases: https://git.prod.wtf/xeonr/hacloud/integration/-/releases
+[![Open your Home Assistant instance and open this repository in HACS.](https://my.home-assistant.io/badges/hacs_repository.svg)](https://my.home-assistant.io/redirect/hacs_repository/?owner=xeonr&repository=hacloud-integration&category=integration)
 
-### From the release zip (recommended)
+Click the button above and confirm, or add it by hand:
 
-1. Download **`xeonr_cloud.zip`** from the latest release:
-   https://git.prod.wtf/xeonr/hacloud/integration/-/releases/permalink/latest/downloads/xeonr_cloud.zip
-2. Unzip it. You get a folder called `xeonr_cloud`.
-3. Copy that `xeonr_cloud` folder into the `custom_components` folder inside
-   your Home Assistant configuration folder, creating `custom_components` if
-   it doesn't exist. The result is `config/custom_components/xeonr_cloud/manifest.json`.
-   On Home Assistant OS, use the Samba share, the File editor or the
-   Terminal & SSH add-on to reach `/config`.
+1. In Home Assistant, open **HACS**, then **⋮ → Custom repositories**.
+2. Add `https://github.com/xeonr/hacloud-integration` with type
+   **Integration**.
+3. Open **Xeonr Home Assistant Cloud** in HACS and select **Download**.
 4. Restart Home Assistant.
 5. Go to **Settings → Devices & services → Add integration**, and pick
    **Xeonr Home Assistant Cloud**.
 
-### From a terminal
+HACS offers updates as new releases come out.
 
-On the machine running Home Assistant, from inside the configuration folder
-(`/config` on Home Assistant OS and in the container image), either
-download and unzip the latest release:
+## Install manually
+
+Use this without HACS. Each release has a `xeonr_cloud.zip`:
+https://github.com/xeonr/hacloud-integration/releases/latest/download/xeonr_cloud.zip
+
+1. Download and unzip it. You get a folder called `xeonr_cloud`.
+2. Copy that folder into the `custom_components` folder inside your Home
+   Assistant configuration folder, creating `custom_components` if it doesn't
+   exist. The result is `config/custom_components/xeonr_cloud/manifest.json`.
+   On Home Assistant OS, use the Samba share, the File editor or the
+   Terminal & SSH add-on to reach `/config`.
+3. Restart Home Assistant and add the integration as in step 5 above.
+
+From a terminal on the machine running Home Assistant, inside the
+configuration folder (`/config` on Home Assistant OS and in the container
+image):
 
 ```bash
-mkdir -p custom_components && curl -fsSL https://git.prod.wtf/xeonr/hacloud/integration/-/releases/permalink/latest/downloads/xeonr_cloud.zip -o /tmp/xeonr_cloud.zip && rm -rf custom_components/xeonr_cloud && unzip -q /tmp/xeonr_cloud.zip -d custom_components
+mkdir -p custom_components && curl -fsSL https://github.com/xeonr/hacloud-integration/releases/latest/download/xeonr_cloud.zip -o /tmp/xeonr_cloud.zip && rm -rf custom_components/xeonr_cloud && unzip -q /tmp/xeonr_cloud.zip -d custom_components
 ```
 
-or clone the repository and copy the folder out:
+To update a manual install, run the same command again and restart.
 
-```bash
-git clone --depth 1 https://git.prod.wtf/xeonr/hacloud/integration.git /tmp/xeonr_cloud_src && mkdir -p custom_components && rm -rf custom_components/xeonr_cloud && cp -r /tmp/xeonr_cloud_src/custom_components/xeonr_cloud custom_components/
-```
-
-Then restart Home Assistant and add the integration as in step 5. To
-update later, run the same command again and restart.
-
-### HACS
-
-Not yet. HACS custom repositories must be on GitHub, and this repository is
-on GitLab. HACS support comes with the GitHub mirror (HAC-21).
+The source of truth is https://git.prod.wtf/xeonr/hacloud/integration.
+GitHub is its mirror, and both carry the same releases.
 
 ## Setting up
 
@@ -129,6 +129,9 @@ xeonr_cloud:
 
 ## Development
 
+Licensed under the Apache License 2.0 (`LICENSE`).
+
+
 ```bash
 python3.14 -m venv .venv
 .venv/bin/pip install -r requirements_test.txt ruff
@@ -141,6 +144,16 @@ docker run --rm -v "$PWD":/github/workspace ghcr.io/home-assistant/hassfest
 The tests run against `tests/fake_cloud.py`, a localhost fake of Xeonr Auth,
 the instance API and presigned storage, over real HTTP. The tunnel agent is
 faked at the `tunnel.TunnelAgent` seam.
+
+**Releases.** Tag `vX.Y.Z` on GitLab, matching `manifest.json`'s version.
+GitLab CI then:
+
+- runs the checks;
+- publishes the GitLab release with `xeonr_cloud.zip`;
+- pushes the tag to GitHub, where `.github/workflows/release.yml` publishes
+  the GitHub release that HACS installs.
+
+`main` is mirrored the same way. Don't push to GitHub directly.
 
 **Tunnel agent library.** [`burrow-agent-py`](https://git.prod.wtf/xeonr/burrow-agent-py)
 is vendored into `custom_components/xeonr_cloud/burrow_agent/`, because HACS
