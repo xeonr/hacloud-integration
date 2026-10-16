@@ -1,11 +1,17 @@
 # xeonr_cloud: tests, lint, hassfest and an offline HACS layout check.
 #
 # Doesn't extend xeonr/ci/templates/pipeline.yml: nothing here is deployed.
-# The integration is published by putting the repository on GitHub for HACS,
-# which is a manual decision, not a pipeline stage.
+# A tag vX.Y.Z (matching manifest.json's version) builds xeonr_cloud.zip,
+# stores it in the project's generic package registry and makes a GitLab
+# release linking it, so every version has a stable download URL:
+#   https://git.prod.wtf/xeonr/hacloud/integration/-/releases/vX.Y.Z/downloads/xeonr_cloud.zip
+#   https://git.prod.wtf/xeonr/hacloud/integration/-/releases/permalink/latest/downloads/xeonr_cloud.zip
+# HACS needs a GitHub mirror (HAC-21); that is not a pipeline stage.
 
 stages:
   - check
+  - package
+  - release
 
 variables:
   PIP_CACHE_DIR: "$CI_PROJECT_DIR/.cache/pip"
@@ -38,3 +44,40 @@ hacs-layout:
   cache: []
   script:
     - python scripts/check_hacs.py
+
+package:
+  stage: package
+  cache: []
+  rules:
+    - if: $CI_COMMIT_TAG =~ /^v\d+\.\d+\.\d+$/
+  script:
+    - python scripts/build_release.py "$CI_COMMIT_TAG"
+    # The package version is the tag itself, so the release links below can
+    # name it without shell string handling.
+    - export PKG="${CI_API_V4_URL}/projects/${CI_PROJECT_ID}/packages/generic/xeonr_cloud/${CI_COMMIT_TAG}"
+    - 'curl --fail-with-body -sS --header "JOB-TOKEN: ${CI_JOB_TOKEN}" --upload-file dist/xeonr_cloud.zip "${PKG}/xeonr_cloud.zip"'
+    - 'curl --fail-with-body -sS --header "JOB-TOKEN: ${CI_JOB_TOKEN}" --upload-file dist/xeonr_cloud.zip.sha256 "${PKG}/xeonr_cloud.zip.sha256"'
+    - cat dist/xeonr_cloud.zip.sha256
+
+release:
+  stage: release
+  image: registry.gitlab.com/gitlab-org/release-cli:latest
+  cache: []
+  rules:
+    - if: $CI_COMMIT_TAG =~ /^v\d+\.\d+\.\d+$/
+  script:
+    - echo "Releasing $CI_COMMIT_TAG"
+  release:
+    tag_name: $CI_COMMIT_TAG
+    name: "xeonr_cloud $CI_COMMIT_TAG"
+    description: "Xeonr Home Assistant Cloud integration $CI_COMMIT_TAG. Download xeonr_cloud.zip and unzip it into config/custom_components/ (see the README)."
+    assets:
+      links:
+        - name: xeonr_cloud.zip
+          url: "${CI_API_V4_URL}/projects/${CI_PROJECT_ID}/packages/generic/xeonr_cloud/${CI_COMMIT_TAG}/xeonr_cloud.zip"
+          direct_asset_path: /xeonr_cloud.zip
+          link_type: package
+        - name: xeonr_cloud.zip.sha256
+          url: "${CI_API_V4_URL}/projects/${CI_PROJECT_ID}/packages/generic/xeonr_cloud/${CI_COMMIT_TAG}/xeonr_cloud.zip.sha256"
+          direct_asset_path: /xeonr_cloud.zip.sha256
+          link_type: other
