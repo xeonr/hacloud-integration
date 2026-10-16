@@ -33,7 +33,7 @@ from .repairs import (
     async_raise_precondition,
     async_raise_unlinked,
 )
-from .tunnel import AgentFactory, TunnelAgent, TunnelUnavailable
+from .tunnel import AgentFactory, TunnelAgent, TunnelUnavailable, http_runner
 
 if TYPE_CHECKING:
     from homeassistant.config_entries import ConfigEntry
@@ -263,9 +263,18 @@ class ConnectionManager:
                 backoff = RECONNECT_MIN_SECONDS
 
             assert self.connection is not None
+            # On a restart this entry sets up before the HTTP server starts;
+            # the agent needs its runner.
+            while http_runner(self.hass) is None and not self._stopping.is_set():
+                await self._sleep(1)
+            if self._stopping.is_set():
+                return
             try:
                 self._agent = self._agent_factory(
-                    self.hass, self.connection, self._on_agent_state
+                    self.hass,
+                    self.connection,
+                    self._on_agent_state,
+                    f"xeonr_cloud/{self._integration_version}",
                 )
             except TunnelUnavailable as err:
                 _LOGGER.error("Remote access unavailable: %s", err)

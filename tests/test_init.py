@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 from datetime import timedelta
+import sys
+from unittest.mock import patch
 
 from homeassistant.components.repairs import DOMAIN as REPAIRS_DOMAIN
 from homeassistant.config_entries import SOURCE_REAUTH, ConfigEntryState
@@ -224,12 +226,27 @@ async def test_api_down_retries_setup(
 
 
 async def test_agent_library_missing_is_a_repair(
-    hass: HomeAssistant, fake_cloud: FakeCloud, entry
+    hass: HomeAssistant, fake_cloud: FakeCloud, entry, http_runner
 ) -> None:
-    """Without the fake, the real factory runs; burrow_agent is not vendored
-    yet, so remote access reports itself unavailable instead of crashing."""
+    """Without the library the real factory reports remote access unavailable
+    instead of crashing; backups and ICE keep working."""
+    with patch.dict(sys.modules, {"custom_components.xeonr_cloud.burrow_agent": None}):
+        assert await hass.config_entries.async_setup(entry.entry_id)
+        await wait_for(
+            hass, lambda: _issue(hass, "agent_unavailable", entry) is not None
+        )
+    assert entry.state is ConfigEntryState.LOADED
+    assert hass.states.get(SENSOR).attributes["state"] == "agent_unavailable"
+
+
+async def test_agent_waits_for_the_http_server(
+    hass: HomeAssistant, fake_cloud: FakeCloud, entry, fake_agent, http_runner
+) -> None:
+    """On a restart the entry sets up before HA's HTTP server has a runner."""
+    http_runner.runner = None
     assert await hass.config_entries.async_setup(entry.entry_id)
     await hass.async_block_till_done()
-    assert entry.state is ConfigEntryState.LOADED
-    assert _issue(hass, "agent_unavailable", entry) is not None
-    assert hass.states.get(SENSOR).attributes["state"] == "agent_unavailable"
+    assert fake_agent.instances == []
+    http_runner.runner = object()
+    async_fire_time_changed(hass, dt_util.utcnow() + timedelta(seconds=2))
+    await wait_for(hass, lambda: len(fake_agent.instances) == 1)

@@ -10,10 +10,7 @@ Assistant cloud. It gives you:
 - **Off-site backups.** A backup location for Home Assistant's own backups,
   stored in your team's storage. Only encrypted backups are accepted.
 
-> **Status:** pre-release. The backend (`hacloud.xeonr.io`) and the sign-in
-> client are not live yet. The tunnel agent library is not vendored yet, so
-> remote access reports *Remote access could not start* until it is (see
-> [Development](#development)).
+> **Status:** pre-release, not published to HACS.
 
 ## Requirements
 

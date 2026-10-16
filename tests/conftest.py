@@ -95,12 +95,28 @@ class FakeAgent:
         self._stop.set()
 
 
+class FakeRunner:
+    """What the supervisor sees as hass.http.runner; tests can unset it."""
+
+    runner: object | None = object()
+
+
 @pytest.fixture
-def fake_agent():
+def http_runner():
+    FakeRunner.runner = object()
+    with patch(
+        "custom_components.xeonr_cloud.connection.http_runner",
+        side_effect=lambda hass: FakeRunner.runner,
+    ):
+        yield FakeRunner
+
+
+@pytest.fixture
+def fake_agent(http_runner):
     FakeAgent.instances = []
     with patch(
         "custom_components.xeonr_cloud.create_burrow_agent",
-        side_effect=lambda hass, conn, cb: FakeAgent(hass, conn, cb),
+        side_effect=lambda hass, conn, cb, version: FakeAgent(hass, conn, cb),
     ):
         yield FakeAgent
 

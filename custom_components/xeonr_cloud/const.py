@@ -11,13 +11,10 @@ DOMAIN: Final = "xeonr_cloud"
 # hacloud-infra's ingress (stage: https://hacloud.xeonr.dev).
 DEFAULT_API_BASE_URL: Final = "https://hacloud.xeonr.io"
 
-# Xeonr Auth (stage: https://auth.xeonr.dev). The device-flow client is the
-# public "Home Assistant" client made by platform-docs
-# console/docs/hacloud-portal-saves.sh. Until that runs this id is a
-# PLACEHOLDER and sign-in aborts with invalid_client; set `client_id` under
-# `xeonr_cloud:` in configuration.yaml to try a real one.
+# Xeonr Auth (stage: https://auth.xeonr.dev). The public "Home Assistant"
+# device-flow client, made by platform-docs console/docs/hacloud-portal-saves.sh.
 DEFAULT_AUTH_ISSUER: Final = "https://auth.xeonr.io"
-DEFAULT_CLIENT_ID: Final = "hacloud-home-assistant"
+DEFAULT_CLIENT_ID: Final = "2ced5235-f72a-4ed9-aca0-023bee71b8ac"
 # CreateInstance exchanges this token (RFC 8693) for Burrow and upl tokens,
 # so it must carry their delegated scopes as well as our own. No
 # offline_access: the token is used once and dropped.
