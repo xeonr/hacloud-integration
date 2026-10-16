@@ -6,12 +6,15 @@
 # release linking it, so every version has a stable download URL:
 #   https://git.prod.wtf/xeonr/hacloud/integration/-/releases/vX.Y.Z/downloads/xeonr_cloud.zip
 #   https://git.prod.wtf/xeonr/hacloud/integration/-/releases/permalink/latest/downloads/xeonr_cloud.zip
-# HACS needs a GitHub mirror (HAC-21); that is not a pipeline stage.
+# github.com/xeonr/hacloud-integration is a mirror for HACS (HAC-21): the
+# mirror job pushes main and every vX.Y.Z tag there once the checks pass, and
+# a GitHub workflow turns each tag into the GitHub Release HACS installs.
 
 stages:
   - check
   - package
   - release
+  - mirror
 
 variables:
   PIP_CACHE_DIR: "$CI_PROJECT_DIR/.cache/pip"
@@ -81,3 +84,30 @@ release:
           url: "${CI_API_V4_URL}/projects/${CI_PROJECT_ID}/packages/generic/xeonr_cloud/${CI_COMMIT_TAG}/xeonr_cloud.zip.sha256"
           direct_asset_path: /xeonr_cloud.zip.sha256
           link_type: other
+
+# Push main and release tags to the GitHub mirror. GitLab is the source of
+# truth; main on GitHub is force-updated to match. GITHUB_MIRROR_SSH_KEY is a
+# protected file variable holding a write deploy key for that one GitHub
+# repository, so this only runs on main and on protected v* tags.
+mirror-github:
+  stage: mirror
+  cache: []
+  variables:
+    GIT_DEPTH: "0"
+    GIT_STRATEGY: clone
+  rules:
+    - if: $CI_COMMIT_BRANCH == "main"
+    - if: $CI_COMMIT_TAG =~ /^v\d+\.\d+\.\d+$/
+  script:
+    - install -d -m 700 ~/.ssh
+    # github.com's ED25519 host key, as published at api.github.com/meta.
+    - echo "github.com ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIOMqqnkVzrm0SdG6UOoqKLsabgH5C9okWi0dh2l9GKJl" > ~/.ssh/known_hosts
+    - export GIT_SSH_COMMAND="ssh -i $GITHUB_MIRROR_SSH_KEY -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes"
+    - chmod 600 "$GITHUB_MIRROR_SSH_KEY"
+    - git remote add github git@github.com:xeonr/hacloud-integration.git
+    - |
+      if [ -n "$CI_COMMIT_TAG" ]; then
+        git push github "refs/tags/$CI_COMMIT_TAG"
+      else
+        git push --force github "$CI_COMMIT_SHA:refs/heads/main"
+      fi
