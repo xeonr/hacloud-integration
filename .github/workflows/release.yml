@@ -1,0 +1,34 @@
+# GitHub is a read-only push mirror of git.prod.wtf/xeonr/hacloud/integration
+# (the source of truth). When a vX.Y.Z tag arrives through the mirror, this
+# publishes the matching GitHub Release, which is what HACS installs from.
+# The same xeonr_cloud.zip is attached for manual installs.
+name: release
+
+on:
+  push:
+    tags: ["v*.*.*"]
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.13"
+      - name: Build xeonr_cloud.zip (checks the tag against manifest.json)
+        run: python scripts/build_release.py "$GITHUB_REF_NAME"
+      - name: Publish the release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if gh release view "$GITHUB_REF_NAME" >/dev/null 2>&1; then
+            gh release upload "$GITHUB_REF_NAME" dist/xeonr_cloud.zip dist/xeonr_cloud.zip.sha256 --clobber
+          else
+            gh release create "$GITHUB_REF_NAME" dist/xeonr_cloud.zip dist/xeonr_cloud.zip.sha256 \
+              --title "xeonr_cloud $GITHUB_REF_NAME" \
+              --notes "Xeonr Home Assistant Cloud $GITHUB_REF_NAME. Install with HACS (see the README), or unzip xeonr_cloud.zip into config/custom_components/. Source and changes: https://git.prod.wtf/xeonr/hacloud/integration/-/tags/$GITHUB_REF_NAME"
+          fi

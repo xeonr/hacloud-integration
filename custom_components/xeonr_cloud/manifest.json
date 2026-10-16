@@ -1,14 +1,22 @@
 {
   "domain": "xeonr_cloud",
   "name": "Xeonr Home Assistant Cloud",
-  "after_dependencies": ["backup"],
-  "codeowners": ["@xeonr"],
+  "after_dependencies": [
+    "backup"
+  ],
+  "codeowners": [
+    "@xeonr"
+  ],
   "config_flow": true,
-  "dependencies": ["http", "repairs", "web_rtc"],
-  "documentation": "https://git.prod.wtf/xeonr/hacloud/integration",
+  "dependencies": [
+    "http",
+    "repairs",
+    "web_rtc"
+  ],
+  "documentation": "https://github.com/xeonr/hacloud-integration",
   "integration_type": "service",
   "iot_class": "cloud_push",
-  "issue_tracker": "https://git.prod.wtf/xeonr/hacloud/integration/-/issues",
+  "issue_tracker": "https://github.com/xeonr/hacloud-integration/issues",
   "requirements": [],
   "single_config_entry": true,
   "version": "0.1.1"
