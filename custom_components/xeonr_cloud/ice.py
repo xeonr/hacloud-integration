@@ -64,7 +64,7 @@ class IceServerManager:
         try:
             result = await self.api.list_ice_servers()
         except ConnectError as err:
-            if err.is_auth:
+            if err.is_unlinked:
                 self._on_auth_error()
                 return
             _LOGGER.warning("ListIceServers failed: %s", err)

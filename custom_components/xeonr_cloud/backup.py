@@ -166,7 +166,8 @@ class XeonrCloudBackupAgent(BackupAgent):
 
     def _raise(self, err: HacloudError, action: str) -> NoReturn:
         if isinstance(err, ConnectError):
-            if err.is_auth:
+            if err.code == "unauthenticated":
+                # A revoked instance key: unlinked.
                 self._entry.runtime_data.on_auth_error()
             if err.code == "not_found":
                 raise BackupNotFound(f"Backup not found: {err.message}") from err

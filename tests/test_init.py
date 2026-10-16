@@ -12,6 +12,7 @@ from homeassistant.core import HomeAssistant
 from homeassistant.helpers import issue_registry as ir
 from homeassistant.setup import async_setup_component
 from homeassistant.util import dt as dt_util
+import pytest
 from pytest_homeassistant_custom_component.common import async_fire_time_changed
 from pytest_homeassistant_custom_component.typing import ClientSessionGenerator
 
@@ -183,15 +184,33 @@ async def test_reservation_removed_fix_starts_relink(
     assert [f["context"]["source"] for f in flows] == [SOURCE_REAUTH]
 
 
+@pytest.mark.parametrize("code", ["unauthenticated", "not_found"])
 async def test_revoked_credential_at_setup(
-    hass: HomeAssistant, fake_cloud: FakeCloud, entry, fake_agent
+    hass: HomeAssistant, fake_cloud: FakeCloud, entry, fake_agent, code
 ) -> None:
+    """A revoked key answers unauthenticated, or not_found for ~30 s after
+    the unlink while Auth's cache holds it: both are an unlink."""
     fake_cloud.auth_error_all = True
+    fake_cloud.auth_error_code = code
     assert not await hass.config_entries.async_setup(entry.entry_id)
     await hass.async_block_till_done()
     assert entry.state is ConfigEntryState.SETUP_ERROR
     issue = _issue(hass, "instance_unlinked", entry)
     assert issue is not None and issue.is_fixable
+    flows = hass.config_entries.flow.async_progress_by_handler(DOMAIN)
+    assert [f["context"]["source"] for f in flows] == [SOURCE_REAUTH]
+
+
+async def test_wrong_credential_is_not_an_unlink(
+    hass: HomeAssistant, fake_cloud: FakeCloud, entry, fake_agent
+) -> None:
+    """permission_denied: the bearer is not an instance key. Re-auth fixes
+    it, but nothing says the instance was unlinked."""
+    fake_cloud.auth_error_all = True
+    fake_cloud.auth_error_code = "permission_denied"
+    assert not await hass.config_entries.async_setup(entry.entry_id)
+    await hass.async_block_till_done()
+    assert _issue(hass, "instance_unlinked", entry) is None
     flows = hass.config_entries.flow.async_progress_by_handler(DOMAIN)
     assert [f["context"]["source"] for f in flows] == [SOURCE_REAUTH]
 

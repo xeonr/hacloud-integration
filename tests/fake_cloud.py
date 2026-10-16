@@ -66,6 +66,8 @@ class FakeCloud:
     connection_error: tuple[str, str, list] | None = None
     seen: list[dict[str, Any]] = field(default_factory=list)
     auth_error_all: bool = False
+    # What a refused instance credential answers.
+    auth_error_code: str = "unauthenticated"
     ice_ttl: timedelta = timedelta(hours=1)
     ice_calls: int = 0
     ice_error: tuple[str, str] | None = None
@@ -240,7 +242,7 @@ class FakeCloud:
         if not service.startswith("xeonr.hacloud.private.v1."):
             return self._error("unimplemented", status=404)
         if token != INSTANCE_SECRET or self.auth_error_all:
-            return self._error("unauthenticated", "instance credential revoked")
+            return self._error(self.auth_error_code, "instance credential refused")
         handler = getattr(self, f"_rpc_{method}", None)
         if handler is None:
             return self._error("unimplemented", status=404)

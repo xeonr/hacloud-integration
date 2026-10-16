@@ -59,8 +59,11 @@ async def async_setup_entry(hass: HomeAssistant, entry: XeonrCloudConfigEntry) -
     try:
         connection = await api.get_connection()
     except ConnectError as err:
-        if err.is_auth or err.code == "not_found":
+        if err.is_unlinked:
             async_raise_unlinked(hass, entry, start_reauth=False)
+            raise ConfigEntryAuthFailed(str(err)) from err
+        if err.is_wrong_credential:
+            # The stored secret is not an instance key; re-auth regenerates one.
             raise ConfigEntryAuthFailed(str(err)) from err
         if err.code != "failed_precondition":
             raise ConfigEntryNotReady(str(err)) from err

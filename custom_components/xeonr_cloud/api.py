@@ -89,9 +89,21 @@ class ConnectError(HacloudError):
         return None
 
     @property
-    def is_auth(self) -> bool:
-        """Whether the credential itself was refused."""
-        return self.code in ("unauthenticated", "permission_denied")
+    def is_unlinked(self) -> bool:
+        """The instance credential was revoked: the instance was unlinked.
+
+        Auth answers ``unauthenticated`` for a revoked key, and ``not_found``
+        for up to ~30 s after the unlink while its verification cache holds
+        the key (private/v1/connection.proto header). Only meaningful on
+        instance-level RPCs; a backup RPC's ``not_found`` is a missing backup.
+        """
+        return self.code in ("unauthenticated", "not_found")
+
+    @property
+    def is_wrong_credential(self) -> bool:
+        """``permission_denied``: the bearer is not an instance credential at
+        all (never an unlink)."""
+        return self.code == "permission_denied"
 
 
 def _error_info_reason(value: str) -> str | None:

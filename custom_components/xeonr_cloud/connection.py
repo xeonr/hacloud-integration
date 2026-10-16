@@ -155,8 +155,11 @@ class ConnectionManager:
                     agent_connected=self.connected,
                 )
             except ConnectError as err:
-                if err.is_auth:
+                if err.is_unlinked:
                     self.on_auth_error()
+                    return
+                if err.is_wrong_credential:
+                    _LOGGER.error("MarkConnectionSeen refused the credential: %s", err)
                     return
                 _LOGGER.debug("MarkConnectionSeen failed: %s", err)
             except HacloudError as err:
@@ -309,8 +312,12 @@ class ConnectionManager:
         try:
             connection = await self.api.get_connection()
         except ConnectError as err:
-            if err.is_auth or err.code == "not_found":
+            if err.is_unlinked:
                 self.on_auth_error()
+                return False
+            if err.is_wrong_credential:
+                _LOGGER.error("GetConnection refused the credential: %s", err)
+                await self._sleep(PRECONDITION_RECHECK.total_seconds())
                 return False
             if err.code == "failed_precondition":
                 self._set_state(precondition_state(err))
