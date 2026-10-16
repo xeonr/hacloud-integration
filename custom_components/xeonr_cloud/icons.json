@@ -1,0 +1,12 @@
+{
+  "entity": {
+    "binary_sensor": {
+      "remote_access": {
+        "default": "mdi:cloud-check",
+        "state": {
+          "off": "mdi:cloud-off-outline"
+        }
+      }
+    }
+  }
+}

@@ -1,0 +1,101 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Link to Xeonr Home Assistant Cloud",
+        "description": "Sign in with your Xeonr account and pick the team this Home Assistant belongs to. It gets a public URL through a Xeonr tunnel, TURN relays for camera streams, and off-site encrypted backups.\n\nYour Xeonr sign-in is only used to link this instance; it is not stored here. Manage instances at {console_url}."
+      },
+      "reauth_confirm": {
+        "title": "Relink to Xeonr Home Assistant Cloud",
+        "description": "This instance's Xeonr credential was refused: it was unlinked in the console, or its credential was revoked. Sign in again to link it to your team."
+      },
+      "team": {
+        "title": "Choose a team",
+        "data": {
+          "team": "Team"
+        },
+        "data_description": {
+          "team": "The Xeonr team that will own this instance. You need the editor role in it, and the team must have Home Assistant Cloud enabled."
+        }
+      },
+      "external_url": {
+        "title": "Use the tunnel as the external URL",
+        "description": "Home Assistant has no external URL set. Set it to this instance's Xeonr URL, so the companion app, notifications and links work from outside your network?",
+        "data": {
+          "set_external_url": "Set the external URL"
+        }
+      }
+    },
+    "progress": {
+      "wait_for_device": "Open {url} and enter this code to sign in:\n\n```\n{code}\n```\n\nThis page continues by itself once you have approved."
+    },
+    "abort": {
+      "single_instance_allowed": "This Home Assistant is already linked.",
+      "invalid_client": "Xeonr sign-in is not available for this integration yet (the OAuth client is not registered).",
+      "cannot_connect": "Could not reach Xeonr.",
+      "access_denied": "Sign-in was declined.",
+      "code_expired": "The sign-in code expired. Start again.",
+      "sign_in_failed": "Sign-in failed.",
+      "instance_limit": "Your team has reached its Home Assistant instance limit. Remove an instance at {console_url} or raise the limit.",
+      "product_not_enabled": "Xeonr refused to link this instance: Home Assistant Cloud is not enabled for this team, or the sign-in is missing a permission. Check the team at {console_url}, then try again.",
+      "not_editor": "You need the editor role in this team to link an instance.",
+      "already_configured": "This instance is already linked.",
+      "reauth_successful": "Relinked."
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "External URL",
+        "data": {
+          "set_external_url": "Use this instance's Xeonr URL as the external URL"
+        },
+        "data_description": {
+          "set_external_url": "Only applies while no other external URL is set. Turning it off clears the URL this integration set."
+        }
+      }
+    },
+    "abort": {
+      "external_url_set_by_user": "The external URL is already set to {external_url}, so this integration leaves it alone. Clear it under Settings → System → Network to have it set to the tunnel URL."
+    }
+  },
+  "entity": {
+    "binary_sensor": {
+      "remote_access": {
+        "name": "Remote access"
+      }
+    }
+  },
+  "issues": {
+    "remote_access_disabled": {
+      "title": "Remote access is switched off for {title}",
+      "description": "Remote access for this instance is switched off in the Xeonr console, so it has no public URL. Backups and camera relays still work. Turn it back on at {console_url}; this issue clears by itself within a few minutes."
+    },
+    "reservation_removed": {
+      "title": "{title}'s public hostname was removed",
+      "fix_flow": {
+        "step": {
+          "confirm": {
+            "title": "Relink this instance",
+            "description": "A team admin deleted this instance's hostname reservation in Burrow, so it can no longer be reached remotely. Relinking signs you in again and links this Home Assistant as a new instance with a new hostname."
+          }
+        }
+      }
+    },
+    "instance_unlinked": {
+      "title": "{title} is no longer linked to Xeonr",
+      "fix_flow": {
+        "step": {
+          "confirm": {
+            "title": "Relink this instance",
+            "description": "Xeonr refused this instance's credential: it was unlinked in the console ({console_url}), or its credential was revoked. Remote access, camera relays and backups are stopped. Relinking signs you in again and links this Home Assistant to your team."
+          }
+        }
+      }
+    },
+    "agent_unavailable": {
+      "title": "Remote access could not start for {title}",
+      "description": "The tunnel agent could not start: {error}. Reinstall the integration from HACS; if this persists, report it."
+    }
+  }
+}

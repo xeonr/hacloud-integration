@@ -1,0 +1,40 @@
+# xeonr_cloud: tests, lint, hassfest and an offline HACS layout check.
+#
+# Doesn't extend xeonr/ci/templates/pipeline.yml: nothing here is deployed.
+# The integration is published by putting the repository on GitHub for HACS,
+# which is a manual decision, not a pipeline stage.
+
+stages:
+  - check
+
+variables:
+  PIP_CACHE_DIR: "$CI_PROJECT_DIR/.cache/pip"
+
+default:
+  image: python:3.14-bookworm
+  cache:
+    key: pip-$CI_JOB_NAME
+    paths: [.cache/pip]
+
+test:
+  stage: check
+  script:
+    - pip install -q -r requirements_test.txt ruff
+    - ruff format --check .
+    - ruff check .
+    - pytest -q --timeout 120
+
+hassfest:
+  stage: check
+  image:
+    name: ghcr.io/home-assistant/hassfest:latest
+    entrypoint: [""]
+  cache: []
+  script:
+    - /usr/src/homeassistant/script/hassfest/docker/entrypoint.sh
+
+hacs-layout:
+  stage: check
+  cache: []
+  script:
+    - python scripts/check_hacs.py
