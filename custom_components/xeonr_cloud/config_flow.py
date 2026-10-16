@@ -36,6 +36,7 @@ from .const import (
     CONF_TEAM,
     CONSOLE_URL,
     DOMAIN,
+    REAUTH_RELINK_NEW,
 )
 from .settings import async_get_settings, user_agent
 
@@ -58,6 +59,9 @@ class XeonrCloudConfigFlow(ConfigFlow, domain=DOMAIN):
         self._team: Team | None = None
         self._entry_data: dict[str, Any] | None = None
         self._entry_title = ""
+        # Re-auth after a removed reservation links a new instance; any
+        # other re-auth keeps the instance and regenerates its credential.
+        self._relink_new = False
 
     @staticmethod
     @callback
@@ -78,6 +82,7 @@ class XeonrCloudConfigFlow(ConfigFlow, domain=DOMAIN):
     async def async_step_reauth(
         self, entry_data: Mapping[str, Any]
     ) -> ConfigFlowResult:
+        self._relink_new = bool(entry_data.get(REAUTH_RELINK_NEW))
         return await self.async_step_reauth_confirm()
 
     async def async_step_reauth_confirm(
@@ -153,6 +158,12 @@ class XeonrCloudConfigFlow(ConfigFlow, domain=DOMAIN):
         self, user_input: dict[str, Any] | None = None
     ) -> ConfigFlowResult:
         assert self._auth is not None and self._access_token is not None
+        if self.source == SOURCE_REAUTH and not self._relink_new:
+            entry = self._get_reauth_entry()
+            if instance_id := entry.data.get(CONF_INSTANCE_ID):
+                return await self._async_create_instance(
+                    team=entry.data.get(CONF_TEAM, ""), regenerate=instance_id
+                )
         self._teams = sorted(
             await self._auth.list_teams(self._access_token),
             key=lambda t: t.label.casefold(),
@@ -195,23 +206,40 @@ class XeonrCloudConfigFlow(ConfigFlow, domain=DOMAIN):
 
     # Link
 
-    async def _async_create_instance(self, *, team: str) -> ConfigFlowResult:
+    async def _async_create_instance(
+        self, *, team: str, regenerate: str | None = None
+    ) -> ConfigFlowResult:
+        """Link: a new instance, or with regenerate a new credential for an
+        existing one (falling back to a new instance if it is gone)."""
         assert self._access_token is not None
-        settings = async_get_settings(self.hass)
+        api_base_url = async_get_settings(self.hass).api_base_url
+        if self.source == SOURCE_REAUTH:
+            api_base_url = (
+                self._get_reauth_entry().data.get(CONF_API_BASE_URL) or api_base_url
+            )
         api = HacloudUserApi(
             async_get_clientsession(self.hass),
-            settings.api_base_url,
+            api_base_url,
             self._access_token,
             user_agent(self.hass),
         )
         name = (self.hass.config.location_name or "Home Assistant")[:64]
         try:
-            created = await api.create_instance(
-                team=team,
-                name=name,
-                home_assistant_version=HA_VERSION,
-                integration_version=await self._async_integration_version(),
-            )
+            created = None
+            if regenerate:
+                try:
+                    created = await api.regenerate_instance_secret(regenerate)
+                except ConnectError as err:
+                    if err.code != "not_found":
+                        raise
+                    _LOGGER.info("Instance %s is gone; linking a new one", regenerate)
+            if created is None:
+                created = await api.create_instance(
+                    team=team,
+                    name=name,
+                    home_assistant_version=HA_VERSION,
+                    integration_version=await self._async_integration_version(),
+                )
         except ConnectError as err:
             _LOGGER.warning("CreateInstance refused: %s", err)
             return self.async_abort(
@@ -235,7 +263,7 @@ class XeonrCloudConfigFlow(ConfigFlow, domain=DOMAIN):
             CONF_INSTANCE_ID: created.instance.id,
             CONF_INSTANCE_SECRET: created.instance_secret,
             CONF_TEAM: created.instance.team or team,
-            CONF_API_BASE_URL: settings.api_base_url,
+            CONF_API_BASE_URL: api_base_url,
         }
 
         if self.source == SOURCE_REAUTH:

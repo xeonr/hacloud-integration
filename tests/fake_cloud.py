@@ -61,6 +61,8 @@ class FakeCloud:
     # Instance API
     create_error: tuple[str, str] | None = None
     created: list[dict[str, Any]] = field(default_factory=list)
+    regenerated: list[str] = field(default_factory=list)
+    regenerate_not_found: bool = False
     connection_error: tuple[str, str, list] | None = None
     seen: list[dict[str, Any]] = field(default_factory=list)
     auth_error_all: bool = False
@@ -191,6 +193,27 @@ class FakeCloud:
         body = await request.json()
         self.calls.append(f"{service}/{method}")
         token = request.headers.get("Authorization", "").removeprefix("Bearer ")
+
+        if (
+            service == "xeonr.hacloud.v1.InstanceService"
+            and method == "RegenerateInstanceSecret"
+        ):
+            if token != USER_TOKEN:
+                return self._error("unauthenticated")
+            if self.regenerate_not_found:
+                return self._error("not_found", "no such instance")
+            self.regenerated.append(body["id"])
+            return web.json_response(
+                {
+                    "instance": {
+                        "id": body["id"],
+                        "team": TEAM_A,
+                        "name": "Home",
+                        "url": "https://quiet-otter.brw.xnr.app",
+                    },
+                    "instanceSecret": INSTANCE_SECRET,
+                }
+            )
 
         if service == "xeonr.hacloud.v1.InstanceService" and method == "CreateInstance":
             if token != USER_TOKEN:

@@ -13,6 +13,7 @@ from custom_components.xeonr_cloud.const import (
     CONF_SET_EXTERNAL_URL,
     CONF_TEAM,
     DOMAIN,
+    REAUTH_RELINK_NEW,
 )
 
 from .fake_cloud import (
@@ -182,18 +183,43 @@ async def test_single_instance(
     assert result["reason"] == "single_instance_allowed"
 
 
-async def test_reauth_relinks(
+async def test_reauth_regenerates_the_credential(
     hass: HomeAssistant, configured: FakeCloud, entry, fake_agent
 ) -> None:
-    configured.teams.append({"teamId": TEAM_B, "slug": "work", "name": "Work"})
     result = await entry.start_reauth_flow(hass)
     assert result["step_id"] == "reauth_confirm"
     result = await _sign_in(hass, result["flow_id"])
-    # The entry's own team is reused without asking.
     assert result["type"] is FlowResultType.ABORT
     assert result["reason"] == "reauth_successful"
-    assert configured.created[0]["team"] == TEAM_A
+    # Same instance, new credential; nothing new linked.
+    assert configured.regenerated == [INSTANCE_ID]
+    assert configured.created == []
+    assert entry.unique_id == INSTANCE_ID
     assert entry.data[CONF_INSTANCE_SECRET] == INSTANCE_SECRET
+
+
+async def test_reauth_relinks_when_the_instance_is_gone(
+    hass: HomeAssistant, configured: FakeCloud, entry, fake_agent
+) -> None:
+    configured.regenerate_not_found = True
+    configured.teams.append({"teamId": TEAM_B, "slug": "work", "name": "Work"})
+    result = await entry.start_reauth_flow(hass)
+    result = await _sign_in(hass, result["flow_id"])
+    assert result["reason"] == "reauth_successful"
+    # The entry's own team is reused without asking.
+    assert configured.created[0]["team"] == TEAM_A
+
+
+async def test_reauth_after_reservation_removed_links_new(
+    hass: HomeAssistant, configured: FakeCloud, entry, fake_agent
+) -> None:
+    result = await entry.start_reauth_flow(
+        hass, data={**entry.data, REAUTH_RELINK_NEW: True}
+    )
+    result = await _sign_in(hass, result["flow_id"])
+    assert result["reason"] == "reauth_successful"
+    assert configured.regenerated == []
+    assert len(configured.created) == 1
 
 
 async def test_options_flow(

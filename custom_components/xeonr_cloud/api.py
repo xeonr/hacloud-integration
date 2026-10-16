@@ -359,6 +359,24 @@ class HacloudUserApi:
             instance_secret=secret,
         )
 
+    async def regenerate_instance_secret(self, instance_id: str) -> CreatedInstance:
+        """A new credential for an existing instance (the old one is revoked)."""
+        data = await self._client.call(
+            PUBLIC_PACKAGE,
+            "InstanceService",
+            "RegenerateInstanceSecret",
+            {"id": instance_id},
+        )
+        secret = _get(data, "instanceSecret", "")
+        if not secret:
+            raise HacloudConnectionError(
+                "RegenerateInstanceSecret returned no instance secret"
+            )
+        return CreatedInstance(
+            instance=Instance.from_json(_get(data, "instance", {}) or {}),
+            instance_secret=secret,
+        )
+
 
 class HacloudInstanceApi:
     """The instance-credential surface: xeonr.hacloud.private.v1."""

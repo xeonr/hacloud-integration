@@ -15,6 +15,7 @@ from .const import (
     ISSUE_INSTANCE_UNLINKED,
     ISSUE_REMOTE_ACCESS_DISABLED,
     ISSUE_RESERVATION_REMOVED,
+    REAUTH_RELINK_NEW,
 )
 
 if TYPE_CHECKING:
@@ -129,7 +130,13 @@ class RelinkRepairFlow(RepairsFlow):
             else None
         )
         if entry is not None:
-            entry.async_start_reauth(self.hass)
+            if self.issue_id.startswith(ISSUE_RESERVATION_REMOVED):
+                # The hostname is gone; only a new instance gets one.
+                entry.async_start_reauth(
+                    self.hass, data={**entry.data, REAUTH_RELINK_NEW: True}
+                )
+            else:
+                entry.async_start_reauth(self.hass)
         return self.async_create_entry(data={})
 
 

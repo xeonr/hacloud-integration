@@ -40,6 +40,10 @@ CONF_INSTANCE_SECRET: Final = "instance_secret"
 CONF_TEAM: Final = "team"
 CONF_API_BASE_URL: Final = "api_base_url"
 
+# Re-auth data flag: link a new instance rather than regenerate the
+# credential of the existing one (its reservation is gone, HAC-4).
+REAUTH_RELINK_NEW: Final = "relink_new_instance"
+
 # Options.
 CONF_SET_EXTERNAL_URL: Final = "set_external_url"
 # The URL we set as external_url, so we only ever clear our own.
