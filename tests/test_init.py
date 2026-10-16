@@ -23,7 +23,7 @@ from custom_components.xeonr_cloud.const import (
     SEEN_INTERVAL,
 )
 
-from .conftest import wait_for
+from .conftest import MANIFEST_VERSION, wait_for
 from .fake_cloud import FakeCloud, error_info
 
 SENSOR = "binary_sensor.home_remote_access"
@@ -54,7 +54,7 @@ async def test_setup_connects_and_unload_stops(
     # Seen on start (not yet connected) and on connect.
     assert [s["agentConnected"] for s in fake_cloud.seen][:1] == [False]
     assert fake_cloud.seen[-1]["agentConnected"] is True
-    assert fake_cloud.seen[-1]["integrationVersion"] == "0.1.0"
+    assert fake_cloud.seen[-1]["integrationVersion"] == MANIFEST_VERSION
 
     assert hass.config.external_url == URL
     assert entry.data[CONF_EXTERNAL_URL_SET_BY_US] == URL

@@ -33,7 +33,7 @@ from .wire import Preamble, Registered
 
 _LOGGER = logging.getLogger(__name__)
 
-__version__: Final = "0.1.0"
+__version__: Final = "0.1.1"
 
 #: Serves one data stream. Called with the stream positioned just past the
 #: preamble line. The agent half-closes (FIN) the stream when it returns and

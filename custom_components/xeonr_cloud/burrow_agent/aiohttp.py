@@ -245,6 +245,21 @@ class StreamTransport(asyncio.Transport):
         self._lost = True
         self._protocol.connection_lost(exc)
 
+    @property
+    def _sendfile_compatible(self) -> Any:
+        """Make ``loop.sendfile()`` say "not implemented" rather than fail.
+
+        aiohttp's ``FileResponse`` (every static file Home Assistant serves)
+        calls ``loop.sendfile(transport, …)`` and falls back to plain writes
+        only on ``NotImplementedError``. asyncio reads this attribute to pick a
+        mode and raises ``RuntimeError`` for a transport without one — which
+        broke every static file through the tunnel in 0.1.0. A stream has no
+        file descriptor to sendfile into, and asyncio's own fallback mode
+        needs its private ``_FlowControlMixin``, so the answer is the one
+        uvloop gives: not implemented.
+        """
+        raise NotImplementedError("sendfile is not supported on a tunnelled stream")
+
     # -- asyncio.Transport -----------------------------------------------------
 
     def write(self, data: bytes | bytearray | memoryview) -> None:

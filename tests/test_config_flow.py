@@ -16,6 +16,7 @@ from custom_components.xeonr_cloud.const import (
     REAUTH_RELINK_NEW,
 )
 
+from .conftest import MANIFEST_VERSION
 from .fake_cloud import (
     INSTANCE_ID,
     INSTANCE_SECRET,
@@ -84,7 +85,7 @@ async def test_single_team_sets_up_and_offers_external_url(
             "team": TEAM_A,
             "name": "Holiday cottage",
             "homeAssistantVersion": configured.created[0]["homeAssistantVersion"],
-            "integrationVersion": "0.1.0",
+            "integrationVersion": MANIFEST_VERSION,
         }
     ]
     assert (

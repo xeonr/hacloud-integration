@@ -4,6 +4,8 @@ from __future__ import annotations
 
 import asyncio
 from collections.abc import AsyncGenerator, Callable
+import json
+from pathlib import Path
 from unittest.mock import patch
 
 from homeassistant.core import HomeAssistant
@@ -21,6 +23,15 @@ from custom_components.xeonr_cloud.const import (
 )
 
 from .fake_cloud import INSTANCE_ID, INSTANCE_SECRET, TEAM_A, FakeCloud
+
+MANIFEST_VERSION = json.loads(
+    (
+        Path(__file__).parent.parent
+        / "custom_components"
+        / "xeonr_cloud"
+        / "manifest.json"
+    ).read_text()
+)["version"]
 
 
 @pytest.fixture(autouse=True)
