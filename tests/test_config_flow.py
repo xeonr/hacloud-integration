@@ -90,7 +90,7 @@ async def test_single_team_sets_up_and_offers_external_url(
     assert (
         "device_code scope=openid profile auth:teams:read hacloud:instances:read "
         "hacloud:instances:edit burrow:managed:read burrow:managed:edit "
-        "upl:bucket:read upl:bucket:manage"
+        "upl:bucket:read upl:bucket:manage upl:credentials:bucket"
     ) in configured.calls
 
     # Setup ran: the tunnel URL became external_url.

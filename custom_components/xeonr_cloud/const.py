@@ -28,6 +28,8 @@ AUTH_SCOPES: Final = (
     "burrow:managed:edit",
     "upl:bucket:read",
     "upl:bucket:manage",
+    # Mints the backup bucket's S3 key by delegation (UPL-162).
+    "upl:credentials:bucket",
 )
 
 # Where the person manages instances.
