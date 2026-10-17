@@ -11,6 +11,22 @@ under `homeassistant-cloud/`, not here:
 Deferred work, bugs found in passing and missing implementation go to Trellis
 project **HAC** (https://trellis.prod.wtf/p/hac), not TODO comments.
 
+## Plumb
+
+The rules this repo is built to live in [Plumb](https://plumb.xeonr.io), not
+in markdown. Read them through the Plumb MCP at `https://plumb.xeonr.io/mcp`
+([setup](https://plumb.xeonr.io/docs/mcp)): `search_docs`,
+`list_requirements`, `get_requirement`, `get_page`. Read the ones for this
+repo's application types before changing it, and cite requirement ids
+(`serve.healthz`), not `§` numbers.
+
+This repo is application `integration` (device-app) of service **hacloud** in plumb
+([plumb.xeonr.io/services/hacloud](https://plumb.xeonr.io/services/hacloud)).
+Where it stands: `get_matrix` filtered to `hacloud`, or `get_cell` for one rule.
+
+To change a rule, edit its page in Plumb. Grandfathering and exempting are a
+person's call; agents propose with `propose_grandfather`.
+
 ## Rules that are load-bearing
 
 - Tunnel streams go into `hass.http.runner` in-process with the real client IP
