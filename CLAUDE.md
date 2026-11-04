@@ -6,19 +6,10 @@ platform-documentation/homeassistant-cloud/ (this repo's notes in
 project **HAC**.
 
 ## Shape
-- A Home Assistant custom integration (`custom_components/xeonr_cloud`,
-  HACS-installable): remote access via a Burrow tunnel, TURN/ICE servers and
-  encrypted off-site backups. Talks Connect JSON over plain aiohttp to
-  `xeonr.hacloud.v1` / `.private.v1`; there is no protobuf runtime.
-- Tunnel streams go into `hass.http.runner` in-process with the real client
-  IP as peer; never proxy to localhost. `tunnel.py` is the only importer of
-  the vendored `burrow_agent`, refreshed by `scripts/sync_burrow_agent.sh`.
-- Only `instance_secret` (an `xk_` API key) is stored, never the person's
-  Xeonr tokens; a user-set `external_url` is never overwritten; unencrypted
-  backups are refused.
-- GitLab is the source of truth: a `vX.Y.Z` tag (matching `manifest.json`)
-  makes CI release and mirror `main` and the tag to GitHub for HACS. Never
-  push to GitHub directly.
+- A HACS-installable Home Assistant integration (`custom_components/xeonr_cloud`): Burrow remote access, TURN/ICE and encrypted off-site backups, over Connect JSON on plain aiohttp to `xeonr.hacloud.v1` / `.private.v1` (no protobuf runtime).
+- Tunnel streams go into `hass.http.runner` in-process with the real client IP as peer, never proxied to localhost; `tunnel.py` is the only importer of the vendored `burrow_agent` (`scripts/sync_burrow_agent.sh`).
+- Only `instance_secret` (an `xk_` API key) is stored, never the person's tokens; a user-set `external_url` is never overwritten; unencrypted backups are refused.
+- GitLab is the source of truth: a `vX.Y.Z` tag matching `manifest.json` releases and mirrors to GitHub for HACS; never push to GitHub.
 
 ## Commands
 `pytest`, `ruff check .`, `ruff format --check .`,

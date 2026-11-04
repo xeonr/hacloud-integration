@@ -137,6 +137,7 @@ async def test_several_teams_ask_which(
     [
         (("resource_exhausted", "limit"), "instance_limit"),
         (("failed_precondition", "not enabled"), "product_not_enabled"),
+        (("not_found", "team not found"), "product_not_enabled"),
         (("permission_denied", "editor"), "not_editor"),
         (("internal", "boom"), "cannot_connect"),
     ],
