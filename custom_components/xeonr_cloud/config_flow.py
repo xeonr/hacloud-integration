@@ -246,6 +246,9 @@ class XeonrCloudConfigFlow(ConfigFlow, domain=DOMAIN):
                 reason={
                     "resource_exhausted": "instance_limit",
                     "failed_precondition": "product_not_enabled",
+                    # A team that does not exist and one without Home
+                    # Assistant Cloud answer alike (console.teams).
+                    "not_found": "product_not_enabled",
                     "permission_denied": "not_editor",
                     "unauthenticated": "sign_in_failed",
                 }.get(err.code, "cannot_connect"),
