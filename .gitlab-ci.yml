@@ -1,3 +1,10 @@
+# Runner lane (xeonr/ci, templates/lane.yml): pipelines renovate-bot triggers
+# run on the capped renovate runner pool, everything else on the main one.
+include:
+  - project: 'xeonr/ci'
+    ref: main
+    file: '/templates/lane.yml'
+
 # xeonr_cloud: tests, lint, hassfest and an offline HACS layout check.
 #
 # Doesn't extend xeonr/ci/templates/pipeline.yml: nothing here is deployed.
