@@ -17,17 +17,17 @@ project **HAC**.
 
 ## Plumb
 The rules this repo is built to live in [Plumb](https://plumb.xeonr.io),
-not in markdown. Read them through the Plumb MCP at
-`https://plumb.xeonr.io/mcp` ([setup](https://plumb.xeonr.io/docs/mcp)):
-`search_docs`, `list_requirements`, `get_requirement`, `get_page`. Read
+not in markdown. Read them through the Xeonr MCP gateway,
+`https://mcp.xeonr.io/mcp` ([setup](https://plumb.xeonr.io/docs/code/mcp)):
+`plumb_search_docs`, `plumb_list_requirements`, `plumb_get_requirement`, `plumb_get_page`. Read
 the ones for this repo's application type(s) before changing it, and cite
 requirement ids (`serve.healthz`), not `§` numbers.
 
 This repo is application `integration` (device-app) of service **hacloud**
 in plumb
 ([plumb.xeonr.io/services/hacloud](https://plumb.xeonr.io/services/hacloud)).
-Where it stands: `get_matrix` filtered to `hacloud`, or `get_cell` for one
+Where it stands: `plumb_get_matrix` filtered to `hacloud`, or `plumb_get_cell` for one
 rule.
 
 To change a rule, edit its page in Plumb. Grandfathering and exempting are
-a person's call; agents propose with `propose_grandfather`.
+a person's call; agents propose with `plumb_propose_grandfather`.
