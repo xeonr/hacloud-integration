@@ -202,7 +202,24 @@ class Connection:
     agent_url: str
     agent_credential: str = field(repr=False)
     reservation_name: str
+    # Always the Burrow address (https://ha-<id>.brw.xnr.app).
     public_url: str
+    # The custom domain as a URL, only while it is verified; else "".
+    custom_domain_url: str = ""
+
+    @property
+    def external_url(self) -> str:
+        """The URL people reach this instance on: the custom domain when
+        there is a verified one, otherwise the Burrow address."""
+        return self.custom_domain_url or self.public_url
+
+
+@dataclass(frozen=True)
+class ConnectionUrls:
+    """The URLs MarkConnectionSeenResponse carries; as on Connection."""
+
+    public_url: str
+    custom_domain_url: str = ""
 
 
 @dataclass(frozen=True)
@@ -415,6 +432,7 @@ class HacloudInstanceApi:
             agent_credential=_get(data, "agentCredential", ""),
             reservation_name=_get(data, "reservationName", ""),
             public_url=_get(data, "publicUrl", ""),
+            custom_domain_url=_get(data, "customDomainUrl", "") or "",
         )
 
     async def mark_connection_seen(
@@ -423,8 +441,10 @@ class HacloudInstanceApi:
         home_assistant_version: str,
         integration_version: str,
         agent_connected: bool,
-    ) -> None:
-        await self._call(
+    ) -> ConnectionUrls | None:
+        """Report in. Returns the instance's current URLs, or None from a
+        server that does not send them on the heartbeat (no publicUrl)."""
+        data = await self._call(
             "ConnectionService",
             "MarkConnectionSeen",
             {
@@ -432,6 +452,13 @@ class HacloudInstanceApi:
                 "integrationVersion": integration_version,
                 "agentConnected": agent_connected,
             },
+        )
+        public_url = _get(data, "publicUrl", "") or ""
+        if not public_url:
+            return None
+        return ConnectionUrls(
+            public_url=public_url,
+            custom_domain_url=_get(data, "customDomainUrl", "") or "",
         )
 
     async def list_ice_servers(self) -> IceServers:

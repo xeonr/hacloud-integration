@@ -20,6 +20,7 @@ from aiohttp.test_utils import TestServer
 
 INSTANCE_ID = "6f1c2a9e-0000-4000-8000-000000000001"
 INSTANCE_SECRET = "hacloud_inst_test_secret"
+PUBLIC_URL = "https://quiet-otter.brw.xnr.app"
 USER_TOKEN = "user-access-token"
 TEAM_A = "urn:xeonr:auth:team:aaaaaaaa-0000-4000-8000-000000000000"
 TEAM_B = "urn:xeonr:auth:team:bbbbbbbb-0000-4000-8000-000000000000"
@@ -65,6 +66,10 @@ class FakeCloud:
     regenerate_not_found: bool = False
     connection_error: tuple[str, str, list] | None = None
     seen: list[dict[str, Any]] = field(default_factory=list)
+    # The verified custom domain, as GetConnection and the heartbeat say it.
+    custom_domain_url: str = ""
+    # False is a server from before the heartbeat carried the URLs.
+    seen_carries_urls: bool = True
     auth_error_all: bool = False
     # What a refused instance credential answers.
     auth_error_code: str = "unauthenticated"
@@ -258,13 +263,22 @@ class FakeCloud:
                 "agentUrl": "wss://connect.brw.xnr.app/v1/agent",
                 "agentCredential": "burrow_agent_cred",
                 "reservationName": "quiet-otter",
-                "publicUrl": "https://quiet-otter.brw.xnr.app",
+                **self._urls(),
             }
         )
 
+    def _urls(self) -> dict:
+        urls = {"publicUrl": PUBLIC_URL}
+        if self.custom_domain_url:
+            urls["customDomainUrl"] = self.custom_domain_url
+        return urls
+
     async def _rpc_MarkConnectionSeen(self, body: dict) -> web.Response:
         self.seen.append(body)
-        return web.json_response({"recordedAt": "2026-10-16T12:00:00.123456789Z"})
+        response = {"recordedAt": "2026-10-16T12:00:00.123456789Z"}
+        if self.seen_carries_urls:
+            response.update(self._urls())
+        return web.json_response(response)
 
     async def _rpc_ListIceServers(self, body: dict) -> web.Response:
         if self.ice_error:

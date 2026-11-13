@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from datetime import UTC, datetime
 
-from custom_components.xeonr_cloud.api import ConnectError, _parse_time
+from custom_components.xeonr_cloud.api import ConnectError, Connection, _parse_time
 from custom_components.xeonr_cloud.auth import teams_from_token
 
 from .fake_cloud import error_info
@@ -66,3 +66,14 @@ def test_teams_claim() -> None:
     assert team.urn == "urn:xeonr:auth:team:1"
     assert team.application_roles == ("editor",)
     assert teams_from_token("not-a-jwt") == []
+
+
+def test_connection_external_url_prefers_a_verified_custom_domain() -> None:
+    slug = "https://quiet-otter.brw.xnr.app"
+    conn = Connection("i", "wss://agent", "cred", "quiet-otter", slug)
+    assert conn.external_url == slug
+    conn = Connection(
+        "i", "wss://agent", "cred", "quiet-otter", slug, "https://home.example.com"
+    )
+    assert conn.external_url == "https://home.example.com"
+    assert conn.public_url == slug

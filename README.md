@@ -77,8 +77,12 @@ The config flow does the following:
    used once and is not stored.
 4. **External URL.** If Home Assistant has no external URL, the flow offers to
    set it to the tunnel URL, and this is on by default. That makes the
-   companion app, notifications and `get_url` use it. An external URL you set
-   yourself is never changed. You can change this later under the
+   companion app, notifications and `get_url` use it. Once the instance has
+   a verified custom domain (set in the console), the external URL follows
+   it, within a few minutes and without a restart, and goes back to the
+   tunnel URL if the domain is removed: Home Assistant only answers OAuth
+   sign-in (the MCP server, for one) on the host it is configured with. An
+   external URL you set yourself is never changed. You can change this later under the
    integration's **Configure**.
 
 ## What you get

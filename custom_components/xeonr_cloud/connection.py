@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+from dataclasses import replace
 from datetime import datetime
 import logging
 from typing import TYPE_CHECKING
@@ -15,6 +16,7 @@ from .api import (
     REASON_RESERVATION_REMOVED,
     ConnectError,
     Connection,
+    ConnectionUrls,
     HacloudError,
     HacloudInstanceApi,
 )
@@ -100,7 +102,9 @@ class ConnectionManager:
 
     @property
     def public_url(self) -> str | None:
-        return self.connection.public_url if self.connection else None
+        """The URL this instance is reached on: its verified custom domain
+        when it has one, otherwise its Burrow address."""
+        return self.connection.external_url if self.connection else None
 
     async def async_start(
         self,
@@ -149,7 +153,7 @@ class ConnectionManager:
         the next interval tries again."""
         async with self._seen_lock:
             try:
-                await self.api.mark_connection_seen(
+                urls = await self.api.mark_connection_seen(
                     home_assistant_version=self._ha_version,
                     integration_version=self._integration_version,
                     agent_connected=self.connected,
@@ -166,6 +170,34 @@ class ConnectionManager:
                 _LOGGER.debug("MarkConnectionSeen failed: %s", err)
             else:
                 self.last_seen_at = datetime.now()
+                if urls is not None:
+                    await self._async_urls_seen(urls)
+
+    async def _async_urls_seen(self, urls: ConnectionUrls) -> None:
+        """Take the URLs the heartbeat answered with.
+
+        GetConnection is only read when the agent (re)connects, so without
+        this a custom domain verified or removed while the tunnel stays up
+        would not reach external_url until the next reconnect. Only while we
+        hold a connection: without one (remote access off, the reservation
+        removed, between reconnects) the next GetConnection decides.
+        """
+        connection = self.connection
+        if connection is None or (
+            urls.public_url == connection.public_url
+            and urls.custom_domain_url == connection.custom_domain_url
+        ):
+            return
+        self.connection = replace(
+            connection,
+            public_url=urls.public_url,
+            custom_domain_url=urls.custom_domain_url,
+        )
+        await self.async_apply_external_url()
+        # The binary sensor shows the URL.
+        async_dispatcher_send(
+            self.hass, SIGNAL_CONNECTION_STATE.format(self.entry.entry_id)
+        )
 
     async def _async_connection_ready(self, connection: Connection) -> None:
         self.connection = connection
@@ -180,10 +212,18 @@ class ConnectionManager:
             self._set_state(STATE_DISCONNECTED)
 
     async def async_apply_external_url(self) -> None:
-        """Offer the tunnel as external_url, never touching one the user set."""
-        if self.connection is None or not self.connection.public_url:
+        """Offer the tunnel as external_url, never touching one the user set.
+
+        A verified custom domain takes priority over the Burrow address:
+        Home Assistant builds its OAuth discovery documents (and the 401
+        that points at them) from the configured URL matching the request's
+        host, so sign-in on the custom domain only works while external_url
+        is the custom domain. The URL we set earlier is ours to move between
+        the two as the domain comes and goes.
+        """
+        if self.connection is None or not self.connection.external_url:
             return
-        url = self.connection.public_url.rstrip("/")
+        url = self.connection.external_url.rstrip("/")
         ours = self.entry.data.get(CONF_EXTERNAL_URL_SET_BY_US)
         current = self.hass.config.external_url
         wanted = self.entry.options.get(CONF_SET_EXTERNAL_URL, True)

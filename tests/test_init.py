@@ -103,6 +103,111 @@ async def test_user_external_url_is_never_overwritten(
     assert CONF_EXTERNAL_URL_SET_BY_US not in entry.data
 
 
+ALIAS = "https://home.example.com"
+
+
+async def _beat(hass: HomeAssistant, fake_cloud: FakeCloud) -> None:
+    """Let one MarkConnectionSeen interval pass and its answer land."""
+    count = len(fake_cloud.seen)
+    async_fire_time_changed(hass, dt_util.utcnow() + SEEN_INTERVAL)
+    await wait_for(hass, lambda: len(fake_cloud.seen) > count)
+
+
+async def test_verified_custom_domain_wins_at_setup(
+    hass: HomeAssistant, fake_cloud: FakeCloud, entry, fake_agent
+) -> None:
+    fake_cloud.custom_domain_url = ALIAS
+    assert await hass.config_entries.async_setup(entry.entry_id)
+    await hass.async_block_till_done()
+    assert hass.config.external_url == ALIAS
+    assert entry.data[CONF_EXTERNAL_URL_SET_BY_US] == ALIAS
+    assert hass.states.get(SENSOR).attributes["url"] == ALIAS
+
+
+async def test_slug_we_set_moves_to_the_custom_domain_and_back(
+    hass: HomeAssistant, fake_cloud: FakeCloud, entry, fake_agent
+) -> None:
+    """The domain is verified, then removed, while the tunnel stays up: the
+    heartbeat carries it, no reconnect needed."""
+    assert await hass.config_entries.async_setup(entry.entry_id)
+    await hass.async_block_till_done()
+    assert hass.config.external_url == URL
+
+    fake_cloud.custom_domain_url = ALIAS
+    await _beat(hass, fake_cloud)
+    await wait_for(hass, lambda: hass.config.external_url == ALIAS)
+    assert entry.data[CONF_EXTERNAL_URL_SET_BY_US] == ALIAS
+    await wait_for(hass, lambda: hass.states.get(SENSOR).attributes["url"] == ALIAS)
+
+    fake_cloud.custom_domain_url = ""
+    await _beat(hass, fake_cloud)
+    await wait_for(hass, lambda: hass.config.external_url == URL)
+    assert entry.data[CONF_EXTERNAL_URL_SET_BY_US] == URL
+    await wait_for(hass, lambda: hass.states.get(SENSOR).attributes["url"] == URL)
+
+    # The tunnel was never restarted for any of it.
+    assert len(fake_agent.instances) == 1
+
+
+async def test_custom_domain_picked_up_on_reconnect_from_an_older_server(
+    hass: HomeAssistant, fake_cloud: FakeCloud, entry, fake_agent
+) -> None:
+    """A heartbeat without URLs changes nothing; GetConnection still does."""
+    fake_cloud.seen_carries_urls = False
+    assert await hass.config_entries.async_setup(entry.entry_id)
+    await hass.async_block_till_done()
+
+    fake_cloud.custom_domain_url = ALIAS
+    await _beat(hass, fake_cloud)
+    await hass.async_block_till_done()
+    assert hass.config.external_url == URL
+
+    [agent] = fake_agent.instances
+    await agent.drop()
+    await wait_for(hass, lambda: fake_cloud.seen[-1]["agentConnected"] is False)
+    async_fire_time_changed(hass, dt_util.utcnow() + timedelta(seconds=10))
+    await wait_for(hass, lambda: len(fake_agent.instances) == 2)
+    await wait_for(hass, lambda: hass.config.external_url == ALIAS)
+
+
+async def test_user_external_url_survives_a_custom_domain(
+    hass: HomeAssistant, fake_cloud: FakeCloud, entry, fake_agent
+) -> None:
+    """Theirs before the domain, through it arriving, and after it goes."""
+    theirs = "https://ha.example.com"
+    await hass.config.async_update(external_url=theirs)
+    assert await hass.config_entries.async_setup(entry.entry_id)
+    await hass.async_block_till_done()
+
+    for custom in (ALIAS, ""):
+        shown = custom or URL
+        fake_cloud.custom_domain_url = custom
+        await _beat(hass, fake_cloud)
+        await wait_for(
+            hass, lambda shown=shown: hass.states.get(SENSOR).attributes["url"] == shown
+        )
+        assert hass.config.external_url == theirs
+        assert CONF_EXTERNAL_URL_SET_BY_US not in entry.data
+
+
+async def test_external_url_changed_by_the_user_is_theirs_from_then_on(
+    hass: HomeAssistant, fake_cloud: FakeCloud, entry, fake_agent
+) -> None:
+    """We set the slug, the user replaced it: a domain arriving later does
+    not take it back."""
+    assert await hass.config_entries.async_setup(entry.entry_id)
+    await hass.async_block_till_done()
+    assert entry.data[CONF_EXTERNAL_URL_SET_BY_US] == URL
+
+    theirs = "https://ha.example.com"
+    await hass.config.async_update(external_url=theirs)
+    fake_cloud.custom_domain_url = ALIAS
+    await _beat(hass, fake_cloud)
+    await wait_for(hass, lambda: hass.states.get(SENSOR).attributes["url"] == ALIAS)
+    assert hass.config.external_url == theirs
+    assert CONF_EXTERNAL_URL_SET_BY_US not in entry.data
+
+
 async def test_remote_access_disabled_is_a_repair_that_heals(
     hass: HomeAssistant,
     fake_cloud: FakeCloud,
