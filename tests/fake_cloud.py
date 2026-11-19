@@ -21,9 +21,31 @@ from aiohttp.test_utils import TestServer
 INSTANCE_ID = "6f1c2a9e-0000-4000-8000-000000000001"
 INSTANCE_SECRET = "hacloud_inst_test_secret"
 PUBLIC_URL = "https://quiet-otter.brw.xnr.app"
-USER_TOKEN = "user-access-token"
 TEAM_A = "urn:xeonr:auth:team:aaaaaaaa-0000-4000-8000-000000000000"
 TEAM_B = "urn:xeonr:auth:team:bbbbbbbb-0000-4000-8000-000000000000"
+
+
+def jwt_shaped(claims: dict[str, Any]) -> str:
+    """An unsigned token shaped like a JWT, for what a reader might decode."""
+
+    def part(obj: dict[str, Any]) -> str:
+        return base64.urlsafe_b64encode(json.dumps(obj).encode()).decode().rstrip("=")
+
+    return f"{part({'alg': 'RS256'})}.{part(claims)}.c2ln"
+
+
+# The access token the fake issues by default. It carries a stale teams claim
+# naming TEAM_B, as a token minted before Auth stopped putting teams in tokens
+# could: the integration must never read it (EP-49, HAC-39). Teams come from
+# ListMyTeams only.
+USER_TOKEN = jwt_shaped(
+    {
+        "sub": "urn:xeonr:auth:uid:user:1",
+        "urn:xeonr:auth:teams": [{"id": TEAM_B, "slug": "stale", "roles": ["admin"]}],
+    }
+)
+# What Auth issues once teams are by reference: no teams claim at all.
+NO_CLAIM_TOKEN = jwt_shaped({"sub": "urn:xeonr:auth:uid:user:1"})
 
 
 def error_info(reason: str) -> dict[str, Any]:
@@ -55,6 +77,11 @@ class FakeCloud:
             {"teamId": TEAM_A, "slug": "home", "name": "Home"},
         ]
     )
+    # ListMyTeams answers with this HTTP status; anything but 200 is a
+    # Connect error.
+    teams_status: int = 200
+    # The access token the device flow issues.
+    access_token: str = USER_TOKEN
     device_error: str | None = None
     poll_results: list[str] = field(default_factory=list)  # errors before success
     polls: int = 0
@@ -151,7 +178,7 @@ class FakeCloud:
             return web.json_response({"error": self.poll_results.pop(0)}, status=400)
         return web.json_response(
             {
-                "access_token": USER_TOKEN,
+                "access_token": self.access_token,
                 "token_type": "Bearer",
                 "expires_in": 3600,
                 "scope": form.get("scope", ""),
@@ -159,7 +186,9 @@ class FakeCloud:
         )
 
     async def _list_my_teams(self, request: web.Request) -> web.Response:
-        assert request.headers["Authorization"] == f"Bearer {USER_TOKEN}"
+        assert request.headers["Authorization"] == f"Bearer {self.access_token}"
+        if self.teams_status != 200:
+            return self._error("unavailable", "auth is down", status=self.teams_status)
         return web.json_response(
             {
                 "teams": [
@@ -205,7 +234,7 @@ class FakeCloud:
             service == "xeonr.hacloud.v1.InstanceService"
             and method == "RegenerateInstanceSecret"
         ):
-            if token != USER_TOKEN:
+            if token != self.access_token:
                 return self._error("unauthenticated")
             if self.regenerate_not_found:
                 return self._error("not_found", "no such instance")
@@ -223,7 +252,7 @@ class FakeCloud:
             )
 
         if service == "xeonr.hacloud.v1.InstanceService" and method == "CreateInstance":
-            if token != USER_TOKEN:
+            if token != self.access_token:
                 return self._error("unauthenticated")
             if self.create_error:
                 return self._error(*self.create_error)

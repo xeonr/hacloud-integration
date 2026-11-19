@@ -25,7 +25,13 @@ from homeassistant.helpers.selector import (
 import voluptuous as vol
 
 from .api import ConnectError, HacloudError, HacloudUserApi
-from .auth import AuthError, DeviceAuthorization, Team, XeonrAuthClient
+from .auth import (
+    AuthError,
+    DeviceAuthorization,
+    Team,
+    TeamsUnavailable,
+    XeonrAuthClient,
+)
 from .const import (
     AUTH_SCOPES,
     CONF_API_BASE_URL,
@@ -164,10 +170,14 @@ class XeonrCloudConfigFlow(ConfigFlow, domain=DOMAIN):
                 return await self._async_create_instance(
                     team=entry.data.get(CONF_TEAM, ""), regenerate=instance_id
                 )
-        self._teams = sorted(
-            await self._auth.list_teams(self._access_token),
-            key=lambda t: t.label.casefold(),
-        )
+        try:
+            teams = await self._auth.list_teams(self._access_token)
+        except TeamsUnavailable as err:
+            # The person's teams are unknown: stop rather than link into a
+            # team picked from nothing.
+            _LOGGER.warning("Could not list the Xeonr teams: %s", err)
+            return self.async_abort(reason="teams_unavailable")
+        self._teams = sorted(teams, key=lambda t: t.label.casefold())
         if not self._teams:
             # An empty team lets the API pick the caller's only team, and
             # refuse with a clear error otherwise.

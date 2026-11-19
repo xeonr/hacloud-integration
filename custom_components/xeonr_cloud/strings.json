@@ -36,6 +36,7 @@
       "access_denied": "Sign-in was declined.",
       "code_expired": "The sign-in code expired. Start again.",
       "sign_in_failed": "Sign-in failed.",
+      "teams_unavailable": "Xeonr could not list your teams, so nothing was linked. Try again in a moment.",
       "instance_limit": "Your team has reached its Home Assistant instance limit. Remove an instance at {console_url} or raise the limit.",
       "product_not_enabled": "Xeonr refused to link this instance: the team was not found or does not have Home Assistant Cloud enabled, or the sign-in is missing a permission. Check the team at {console_url}, then try again.",
       "not_editor": "You need the editor role in this team to link an instance.",
