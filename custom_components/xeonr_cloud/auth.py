@@ -4,6 +4,12 @@ Used only inside the config flow. The access token it yields is handed to
 CreateInstance and to TeamsService/ListMyTeams, then dropped; no refresh token
 is requested (no ``offline_access``), and nothing here is persisted.
 
+The person's teams come only from ListMyTeams, asked with that token. The
+token itself is never read: Xeonr Auth stops putting a teams list in tokens
+(EP-49), and a list read from one would be a snapshot at best and empty at
+worst. If ListMyTeams fails, the flow stops with an error rather than offering
+an empty or guessed list (HAC-39).
+
 Xeonr Auth specifics (auth/api/pkg/api/oauth.go):
 
 - device authorization is ``{issuer}/api/v1/oauth/code``, the token endpoint
@@ -19,9 +25,7 @@ Xeonr Auth specifics (auth/api/pkg/api/oauth.go):
 from __future__ import annotations
 
 import asyncio
-import base64
 from dataclasses import dataclass, field
-import json
 import logging
 import time
 from typing import Any
@@ -33,7 +37,6 @@ from .const import CONNECT_TIMEOUT
 _LOGGER = logging.getLogger(__name__)
 
 DEVICE_GRANT = "urn:ietf:params:oauth:grant-type:device_code"
-TEAMS_CLAIM = "urn:xeonr:auth:teams"
 
 # Indirection so tests can poll without waiting.
 _sleep = asyncio.sleep
@@ -51,6 +54,13 @@ class AuthError(Exception):
 class AuthCannotConnect(AuthError):
     def __init__(self, description: str = "") -> None:
         super().__init__("cannot_connect", description)
+
+
+class TeamsUnavailable(AuthError):
+    """ListMyTeams did not answer: the person's teams are unknown, not none."""
+
+    def __init__(self, description: str = "") -> None:
+        super().__init__("teams_unavailable", description)
 
 
 @dataclass(frozen=True)
@@ -189,7 +199,8 @@ class XeonrAuthClient:
     async def list_teams(self, access_token: str) -> list[Team]:
         """Teams entitled to this product, from TeamsService/ListMyTeams.
 
-        Falls back to the token's teams claim if the call fails.
+        Raises TeamsUnavailable if the call fails: an unknown answer is never
+        an empty list.
         """
         try:
             async with self._session.post(
@@ -205,11 +216,9 @@ class XeonrAuthClient:
                 status = resp.status
                 body = await resp.json(content_type=None)
         except (TimeoutError, aiohttp.ClientError, ValueError) as err:
-            _LOGGER.debug("ListMyTeams failed, using the token claim: %s", err)
-            return teams_from_token(access_token)
+            raise TeamsUnavailable(str(err)) from err
         if status != 200 or not isinstance(body, dict):
-            _LOGGER.debug("ListMyTeams returned %s, using the token claim", status)
-            return teams_from_token(access_token)
+            raise TeamsUnavailable(f"ListMyTeams answered HTTP {status}")
 
         teams: list[Team] = []
         for item in body.get("teams", []) or []:
@@ -232,29 +241,3 @@ class XeonrAuthClient:
                 )
             )
         return teams
-
-
-def teams_from_token(access_token: str) -> list[Team]:
-    """Read the urn:xeonr:auth:teams claim without verifying the token.
-
-    Only used to offer choices; the API verifies the token and the role.
-    """
-    try:
-        payload = access_token.split(".")[1]
-        claims = json.loads(
-            base64.urlsafe_b64decode(payload + "=" * (-len(payload) % 4))
-        )
-    except (IndexError, ValueError):
-        return []
-    teams = []
-    for item in claims.get(TEAMS_CLAIM, []) or []:
-        if isinstance(item, dict) and item.get("id"):
-            teams.append(
-                Team(
-                    urn=item["id"],
-                    slug=item.get("slug", ""),
-                    name=item.get("slug", ""),
-                    application_roles=tuple(item.get("roles") or ()),
-                )
-            )
-    return teams

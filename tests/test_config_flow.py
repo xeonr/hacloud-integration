@@ -2,11 +2,14 @@
 
 from __future__ import annotations
 
+from unittest.mock import patch
+
 from homeassistant import config_entries
 from homeassistant.core import HomeAssistant
 from homeassistant.data_entry_flow import FlowResultType
 import pytest
 
+from custom_components.xeonr_cloud.auth import TeamsUnavailable
 from custom_components.xeonr_cloud.const import (
     CONF_EXTERNAL_URL_SET_BY_US,
     CONF_INSTANCE_SECRET,
@@ -20,6 +23,7 @@ from .conftest import MANIFEST_VERSION
 from .fake_cloud import (
     INSTANCE_ID,
     INSTANCE_SECRET,
+    NO_CLAIM_TOKEN,
     TEAM_A,
     TEAM_B,
     USER_TOKEN,
@@ -130,6 +134,52 @@ async def test_several_teams_ask_which(
     )
     assert result["step_id"] == "external_url"
     assert configured.created[0]["team"] == TEAM_B
+
+
+async def test_teams_come_from_list_my_teams_not_the_token(
+    hass: HomeAssistant, configured: FakeCloud, fake_agent
+) -> None:
+    # The issued token carries a stale teams claim naming TEAM_B; ListMyTeams
+    # answers TEAM_A alone, so the instance is linked in TEAM_A without asking.
+    result = await _sign_in(hass)
+    assert result["step_id"] == "external_url"
+    assert [c["team"] for c in configured.created] == [TEAM_A]
+
+
+async def test_a_token_with_no_teams_claim_links(
+    hass: HomeAssistant, configured: FakeCloud, fake_agent
+) -> None:
+    configured.access_token = NO_CLAIM_TOKEN
+    result = await _sign_in(hass)
+    assert result["step_id"] == "external_url"
+    assert [c["team"] for c in configured.created] == [TEAM_A]
+
+
+@pytest.mark.parametrize("status", [503, 403, 500])
+async def test_list_my_teams_failing_stops_the_flow(
+    hass: HomeAssistant, configured: FakeCloud, status
+) -> None:
+    # An unknown team list is never an empty one, and the token's (stale)
+    # claim is never the fallback: nothing is linked.
+    configured.teams_status = status
+    result = await _sign_in(hass)
+    assert result["type"] is FlowResultType.ABORT
+    assert result["reason"] == "teams_unavailable"
+    assert configured.created == []
+
+
+async def test_list_my_teams_unreachable_stops_the_flow(
+    hass: HomeAssistant, configured: FakeCloud
+) -> None:
+    # The device flow succeeds, then Auth's teams endpoint is unreachable.
+    with patch(
+        "custom_components.xeonr_cloud.auth.XeonrAuthClient.list_teams",
+        side_effect=TeamsUnavailable("connection refused"),
+    ):
+        result = await _sign_in(hass)
+    assert result["type"] is FlowResultType.ABORT
+    assert result["reason"] == "teams_unavailable"
+    assert configured.created == []
 
 
 @pytest.mark.parametrize(
