@@ -1,0 +1,85 @@
+name: ci
+'on':
+- push
+- pull_request
+- manual
+jobs:
+  test:
+    image: python:3.15-bookworm
+    steps:
+    - run: |-
+        pip install -q -r requirements_test.txt ruff
+        ruff format --check .
+        ruff check .
+        pytest -q --timeout 120
+    env:
+      PIP_CACHE_DIR: $CI_PROJECT_DIR/.cache/pip
+    cache:
+      key: pip-$CI_JOB_NAME
+      paths:
+      - .cache/pip
+  hassfest:
+    image: ghcr.io/home-assistant/hassfest:latest
+    steps:
+    - run: /usr/src/homeassistant/script/hassfest/docker/entrypoint.sh
+  hacs-layout:
+    image: python:3.15-bookworm
+    steps:
+    - run: python scripts/check_hacs.py
+  package:
+    if: protected && event == 'push' && startsWith(tag, 'v')
+    needs:
+    - test
+    - hassfest
+    - hacs-layout
+    image: python:3.15-bookworm
+    steps:
+    - run: |-
+        test "$(printf "%s\n" "$CI_COMMIT_TAG" | grep -Ec "^v[0-9]+\.[0-9]+\.[0-9]+$")" = 1
+        python scripts/build_release.py "$CI_COMMIT_TAG"
+        cat dist/xeonr_cloud.zip.sha256
+    artifacts:
+      paths:
+      - dist/xeonr_cloud.zip
+      - dist/xeonr_cloud.zip.sha256
+  release:
+    if: protected && event == 'push' && startsWith(tag, 'v')
+    needs:
+    - package
+    permissions:
+      releases: write
+    steps:
+    - uses: ci/release@1
+      with:
+        app: xeonr_cloud
+        binary: Xeonr Home Assistant Cloud integration
+        version: $CI_COMMIT_TAG
+        tag: $CI_COMMIT_TAG
+        release: true
+  mirror-github:
+    if: (protected && event == 'push' && !merge_queue && branch == 'main') || (protected && event == 'push' && startsWith(tag,
+      'v'))
+    image: python:3.15-bookworm
+    needs:
+    - test
+    - hassfest
+    - hacs-layout
+    - job: release
+      optional: true
+    checkout:
+      depth: 0
+    secrets:
+      GITHUB_MIRROR_SSH_KEY:
+        type: file
+    steps:
+    - run: |
+        install -d -m 700 ~/.ssh
+        echo "github.com ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIOMqqnkVzrm0SdG6UOoqKLsabgH5C9okWi0dh2l9GKJl" > ~/.ssh/known_hosts
+        (umask 077; printf '%s\n' "$(cat "$GITHUB_MIRROR_SSH_KEY")" > ~/.ssh/id_mirror)
+        export GIT_SSH_COMMAND="ssh -i ~/.ssh/id_mirror -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes"
+        git remote add github git@github.com:xeonr/hacloud-integration.git
+        if [ -n "$CI_COMMIT_TAG" ]; then
+          git push github "refs/tags/$CI_COMMIT_TAG"
+        else
+          git push --force github "$CI_COMMIT_SHA:refs/heads/main"
+        fi
