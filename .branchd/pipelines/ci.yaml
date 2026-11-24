@@ -1,3 +1,8 @@
+# CI moved from GitLab to branchd on 2026-11-24. The release path (a v* tag:
+# package, ci/release, then mirror-github pushing the tag to
+# github.com/xeonr/hacloud-integration, which HACS reads) had not yet run on
+# branchd then: whoever cuts the next v* tag, watch the release and
+# mirror-github jobs.
 name: ci
 'on':
 - push
